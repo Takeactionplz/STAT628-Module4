@@ -7,7 +7,7 @@ library(fmsb)
 library(scales)
 
 virtualenv_create("python3_env")
-virtualenv_install("python3_env", packages = c("pandas","numpy", "gensim", "nltk", "scikit-learn", "wheel", "setuptools"))  # Install required Python packages
+virtualenv_install("python3_env", packages = c("pandas", "numpy", "gensim", "nltk", "scikit-learn", "wheel", "setuptools"))  # Install required Python packages
 use_virtualenv("python3_env", required = TRUE)
 
 # Import Python script
@@ -210,7 +210,6 @@ ui <- fluidPage(
       )
     )
   ),
-  # Modify footer information
   tags$div(
     class = "footer",
     tags$p("App Maintainer: xtang254@wisc.edu"),
@@ -218,9 +217,216 @@ ui <- fluidPage(
   )
 )
 
-# Shiny Server
 server <- function(input, output, session) {
-  # Your server logic remains unchanged
+  client_id <- "your_id"
+  client_secret <- "your_secret"
+  
+  token <- reactive({
+    get_spotify_token(client_id, client_secret)
+  })
+  
+  podcast_data <- reactiveVal(NULL)
+  episode_data <- reactiveVal(NULL)
+  matched_episodes <- reactiveVal(NULL)
+  selected_episode <- reactiveVal(NULL)
+  episode_scores <- reactiveVal(NULL)  # Store the scores
+  nearest_episode <- reactiveVal(NULL) # Store the nearest episode
+  user_input_status <- reactiveVal("initial") # Track user input status
+  
+  # Search for podcasts
+  observeEvent(input$search, {
+    req(input$podcast_name)
+    podcasts <- get_podcasts_by_name(input$podcast_name, token())
+    podcast_data(podcasts)
+    matched_episodes(NULL)
+    selected_episode(NULL)
+    user_input_status("podcast_selected") # Update status
+  })
+  
+  # Search for episodes and retrieve their details
+  observeEvent(input$search_episode, {
+    req(input$episode_name, input$selected_podcast)
+    selected_podcast <- podcast_data() %>%
+      filter(podcast_name == input$selected_podcast)
+    episodes <- get_all_episodes_by_podcast(selected_podcast$podcast_uri, token())
+    episode_data(episodes)
+    
+    # Match episodes
+    all_episodes <- episode_data()
+    matches <- all_episodes %>% filter(grepl(input$episode_name, episode_name, ignore.case = TRUE))
+    matched_episodes(matches)
+    if (nrow(matches) > 0) {
+      selected_episode(matches[1, ]) # Select the first matched episode by default
+    }
+    episode_scores(NULL)  # Clear old scores
+    nearest_episode(NULL) # Clear nearest episode
+    user_input_status("episode_selected") # Update status
+  })
+  
+  # Rate the selected episode
+  observeEvent(input$selected_episode_name, {
+    req(selected_episode())
+    selected <- selected_episode()
+    print(selected$description)
+    # Get the description and calculate scores
+    desc <- selected$description
+    if (!is.null(desc) && desc != "") {
+      # Call Python to calculate scores
+      score <- score_calculator$calculate_similarity_scores(desc)
+      print(paste("Python returned scores:", score))  # Confirm Python returned scores
+      
+      # Update scores in reactiveVal
+      episode_scores(list(
+        Science = as.numeric(score[1]),
+        Finance = as.numeric(score[2]),
+        Thrilling = as.numeric(score[3])
+      ))
+      
+      # Find the most similar episode
+      nearest <- find_nearest_episode(episode_scores(), similarity_df)
+      nearest_episode(nearest)
+      
+    } else {
+      episode_scores(list(
+        Science = NA,
+        Finance = NA,
+        Thrilling = NA
+      ))
+      nearest_episode(NULL)
+    }
+  
+    user_input_status("episode_scored")
+  })
+  
+  # Dynamically display main panel content
+  output$main_content <- renderUI({
+    status <- user_input_status()
+    if (status == "initial") {
+      # Initial state prompt
+      tags$p(
+        "Please enter podcast and episode name.",
+        style = "font-size: 20px; font-weight: bold; color: #444444; font-family: 'CourierPrime';"
+      )
+    } else if (status == "podcast_selected") {
+      # Prompt when podcast is selected but episode name is missing
+      tags$p(
+        "Podcast selected. Please enter episode name.",
+        style = "font-size: 20px; font-weight: bold; color: #444444; font-family: 'CourierPrime';"
+      )
+    } else if (status == "episode_selected" || status == "episode_scored") {
+      req(selected_episode())
+      req(episode_scores())  # Ensure scores are generated
+      req(nearest_episode)
+      scores <- episode_scores()
+ 
+      # Ensure scores are numeric and format to 4 decimal places
+      science_score <- formatC(as.numeric(scores$Science), format = "f", digits = 4)
+      finance_score <- formatC(as.numeric(scores$Finance), format = "f", digits = 4)
+      thrilling_score <- formatC(as.numeric(scores$Thrilling), format = "f", digits = 4)
+      
+      nearest <- nearest_episode()
+      nearest_name <- nearest$name
+      nearest_science <- nearest$similarity_science
+      nearest_finance <- nearest$similarity_finance
+      nearest_thrilling <- nearest$similarity_thrilling
+      
+      tagList(
+        h3("Scores"),
+        tags$ul(
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Science Score: ", science_score, "</span>"))),
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Finance Score: ", finance_score, "</span>"))),
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Thrilling Score: ", thrilling_score, "</span>")))
+        ),
+        h3("The Most Similar Episode"),
+        tags$ul(
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Name: ", nearest_name, "</span>"))),
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Science Score: ", nearest_science, "</span>"))),
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Finance Score: ", nearest_finance, "</span>"))),
+          tags$li(HTML(paste0("<span style='font-size:18px; font-weight:bold;'>Thrilling Score: ", nearest_thrilling, "</span>")))
+        )
+      )
+    }
+  })
+  
+  # Render radar chart
+  output$radar_chart <- renderPlot({
+    req(episode_scores(), nearest_episode())
+    
+    radar_data <- data.frame(
+      Science = c(1, 0, episode_scores()$Science, nearest_episode()$similarity_science),
+      Finance = c(1, 0, episode_scores()$Finance, nearest_episode()$similarity_finance),
+      Thrilling = c(1, 0, episode_scores()$Thrilling, nearest_episode()$similarity_thrilling)
+    )
+    rownames(radar_data) <- c("Max", "Min", "Selected Episode", "Nearest Neighbor")
+    
+    op <- par(mar = c(1, 0.8, 0.8, 0.8))
+    create_beautiful_radarchart(data = radar_data, caxislabels = c(0, 0.25, 0.5, 0.75, 1))
+    legend(
+      x = "bottom", legend = rownames(radar_data[-c(1, 2),]), horiz = TRUE,
+      bty = "n", pch = 20, col = c("#0000FF", "#FC4E07"),
+      text.col = "black", cex = 1.2, pt.cex = 1.5
+    )
+    par(op)
+  })
+  
+  # Render episode details table
+  output$episode_details <- renderTable({
+    req(selected_episode())
+    selected_episode() %>%
+      select(`Episode Name` = episode_name, 
+             `Release Date` = release_date,
+             Description = description)
+  })
+  
+  # Render podcast selector
+  output$podcast_selector <- renderUI({
+    req(podcast_data())
+    selectInput("selected_podcast", "Select a Podcast:", 
+                choices = podcast_data()$podcast_name, 
+                selected = podcast_data()$podcast_name[1])
+  })
+  
+  # Render podcast table
+  output$podcast_table <- renderTable({
+    req(input$selected_podcast, podcast_data())
+    podcast_data() %>%
+      filter(podcast_name == input$selected_podcast) %>%
+      select(`Podcast Name` = podcast_name, Publisher = publisher)
+  })
+  
+  # Render podcast image
+  output$podcast_image <- renderUI({
+    req(input$selected_podcast, podcast_data())
+    selected_podcast <- podcast_data() %>%
+      filter(podcast_name == input$selected_podcast)
+    
+    img_url <- selected_podcast$image
+    if (!is.na(img_url)) {
+      tags$img(src = img_url, height = "150px", style = "margin: 5px;")
+    }
+  })
+  
+  # Render matching episode selector
+  output$episode_selector <- renderUI({
+    req(matched_episodes())
+    selectInput("selected_episode_name", "Select a Matching Episode:", 
+                choices = matched_episodes()$episode_name,
+                selected = matched_episodes()$episode_name[1])
+  })
+  
+  # Update the selected episode
+  observeEvent(input$selected_episode_name, {
+    req(matched_episodes())
+    matches <- matched_episodes()
+    selected_episode(matches %>% filter(episode_name == input$selected_episode_name))
+  })
+  
+  # Render episode result table
+  output$episode_result <- renderTable({
+    req(selected_episode())
+    selected_episode() %>%
+      select(`Episode Name` = episode_name, `Release Date` = release_date)
+  })
 }
 
 shinyApp(ui = ui, server = server)
