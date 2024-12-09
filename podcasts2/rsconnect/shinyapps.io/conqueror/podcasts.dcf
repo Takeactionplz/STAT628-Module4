@@ -1,0 +1,10 @@
+name: podcasts
+title:
+username: conqueror
+account: conqueror
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13545789
+bundleId: 9489888
+url: https://conqueror.shinyapps.io/podcasts/
+version: 1

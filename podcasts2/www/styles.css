@@ -1,0 +1,88 @@
+/* 引入本地字体 CourierPrime */
+@font-face {
+    font-family: "CourierPrime"; /* 自定义字体名称 */
+    src: url("fonts/CourierPrime-Regular.ttf") format("truetype"); /* 字体文件路径 */
+}
+
+/* 页面背景 */
+body {
+    background-color: #f0f0f0;   /* 浅灰色背景 */
+    margin: 0;
+    padding: 0;
+}
+
+/* 标题样式 */
+.title {
+    text-align: center;          /* 居中对齐 */
+    font-family: "Courier New", cursive; /* 花体字体 */
+    font-size: 36px;             /* 字体大小 */
+    color: #000000;              /* 黑色字体 */
+    margin-top: 20px;            /* 顶部外边距 */
+}
+
+/* 底部维护者信息样式 */
+.footer {
+    position: absolute;          /* 固定在页面底部 */
+    bottom: 10px;                /* 距离底部10px */
+    width: 100%;                 /* 宽度占满 */
+    text-align: center;          /* 居中对齐 */
+    font-family: "Arial", sans-serif; /* 使用 Arial 字体 */
+    font-size: 14px;             /* 字体大小 */
+    color: #000000;              /* 黑色字体 */
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    background-color: #f5deb3;   /* 米色背景 */
+    color: #000000;              /* 黑色文字 */
+    padding: 15px;               /* 内边距 */
+    border-radius: 5px;          /* 圆角边框 */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2); /* 添加轻微阴影 */
+}
+
+/* 侧边栏链接样式 */
+.sidebar a {
+    color: #000000;              /* 黑色字体 */
+    text-decoration: none;       /* 无下划线 */
+}
+
+.sidebar a:hover {
+    color: #81b71a;              /* 鼠标悬停时变绿色 */
+}
+
+/* 主内容区域样式 */
+.main-panel {
+    background-color: #f5deb3;   /* 米色背景 */
+    color: #000000;              /* 黑色文字 */
+    font-weight: bold;             /* 加粗 */
+    text-align: center;          /* 居中对齐内容 */
+    font-size: 22px; 
+}
+
+/* 提示文本样式 */
+.main-panel p {
+    font-family: "CourierPrime", monospace; /* 使用 CourierPrime 字体 */
+    font-size: 25px;               /* 字体增大到28px */
+    font-weight: bold;             /* 加粗 */
+    color: #444444;                /* 深灰色文字 */
+    margin: 20px 0;                /* 上下外边距 */
+    line-height: 1.8;              /* 行间距更大 */
+}
+
+/* 鼠标悬停效果 */
+.main-panel p:hover {
+    color: #2a7b9b;                /* 鼠标悬停时变蓝 */
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); /* 添加文字阴影 */
+}
+
+/* 主内容标题样式 */
+.main-panel h3 {
+    text-align: center;            /* 居中对齐 */
+    font-family: "CourierPrime", monospace; /* 使用 CourierPrime 字体 */
+    font-size: 36px;               /* 字体增大到32px */
+    font-weight: bold;             /* 加粗 */
+    color: #000000;                /* 黑色字体 */
+    margin-bottom: 20px;           /* 底部外边距 */
+}
+
+
